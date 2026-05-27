@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+.claude/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# App data (runtime-generated)
+traces/
+uploads/
+*.db
+*.sqlite
+
+# Logs
+*.log
+
+# Original assignment context files (not part of submission)
+assignment.md
+sample_documents_guide.md
+
+# Note: policy_terms.json, test_cases.json, MASTER_IMPLEMENTATION_PLAN.md are committed
