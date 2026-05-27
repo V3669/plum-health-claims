@@ -127,10 +127,18 @@ async def submit_form(
         with open(dest, "wb") as out:
             shutil.copyfileobj(f.file, out)
         doc_type_str = doc_types[i] if i < len(doc_types) else "UNKNOWN"
+        try:
+            actual_type = DocumentType(doc_type_str)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown document type: '{doc_type_str}'. "
+                       f"Valid types: {[t.value for t in DocumentType if t != DocumentType.UNKNOWN]}",
+            )
         docs.append(DocumentSubmission(
             file_id=fid,
             file_name=f.filename,
-            actual_type=DocumentType(doc_type_str),
+            actual_type=actual_type,
             file_path=str(dest),
         ))
 
@@ -140,10 +148,19 @@ async def submit_form(
             actual_type=DocumentType.UNKNOWN,
         ))
 
+    try:
+        category = ClaimCategory(claim_category)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown claim category: '{claim_category}'. "
+                   f"Valid categories: {[c.value for c in ClaimCategory]}",
+        )
+
     submission = ClaimSubmission(
         member_id=member_id,
         policy_id=policy_id,
-        claim_category=ClaimCategory(claim_category),
+        claim_category=category,
         treatment_date=date.fromisoformat(treatment_date),
         claimed_amount=Decimal(claimed_amount),
         hospital_name=hospital_name or None,

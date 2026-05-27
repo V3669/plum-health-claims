@@ -126,7 +126,18 @@ class DocumentExtractionAgent:
             image_data = base64.standard_b64encode(f.read()).decode("utf-8")
 
         suffix = (doc.file_name or doc.file_path or "").lower()
-        media_type = "application/pdf" if suffix.endswith(".pdf") else "image/jpeg"
+        _MIME_BY_EXT = {
+            ".pdf": "application/pdf",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".gif": "image/gif",
+            ".webp": "image/webp",
+            ".tiff": "image/tiff",
+            ".tif": "image/tiff",
+        }
+        ext = "." + suffix.rsplit(".", 1)[-1] if "." in suffix else ""
+        media_type = _MIME_BY_EXT.get(ext, "image/jpeg")
 
         prompt = (
             f"Extract structured information from this {doc.actual_type.value.lower().replace('_', ' ')}. "

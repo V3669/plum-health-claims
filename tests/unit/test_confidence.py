@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from app.agents.decision_engine import _compute_final_confidence
+from app.agents.decision_engine import compute_final_confidence as _compute_final_confidence
 from app.models.enums import StageStatus
 from app.models.trace import ClaimTrace, TraceEvent
 

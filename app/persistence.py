@@ -5,10 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from app.config import DB_PATH as _DB_PATH, TRACES_DIR as _TRACES_DIR
 from app.models.decision import ClaimDecision
-
-_DB_PATH = Path("claims.db")
-_TRACES_DIR = Path("traces")
 
 
 def _db() -> sqlite3.Connection:
@@ -41,10 +39,7 @@ def init_db() -> None:
 def save_decision(decision: ClaimDecision, submission_json: dict) -> None:
     _TRACES_DIR.mkdir(exist_ok=True)
     trace_path = str(_TRACES_DIR / f"{decision.claim_id}.json")
-
     decision_dict = decision.model_dump(mode="json")
-    with open(trace_path, "w", encoding="utf-8") as f:
-        json.dump(decision_dict, f, indent=2, default=str)
 
     with _db() as conn:
         existing = conn.execute(
@@ -52,6 +47,9 @@ def save_decision(decision: ClaimDecision, submission_json: dict) -> None:
         ).fetchone()
         if existing:
             return
+
+        with open(trace_path, "w", encoding="utf-8") as f:
+            json.dump(decision_dict, f, indent=2, default=str)
 
         conn.execute(
             """INSERT INTO claims

@@ -1,11 +1,11 @@
 from __future__ import annotations
 import uuid
-from datetime import datetime, timezone
-from datetime import date
+from datetime import datetime, timezone, date
+from decimal import Decimal
 from typing import Optional
 
 from app.agents.consistency import ConsistencyAgent
-from app.agents.decision_engine import DecisionEngine, _compute_final_confidence
+from app.agents.decision_engine import DecisionEngine, compute_final_confidence
 from app.agents.doc_extraction import DocumentExtractionAgent
 from app.agents.doc_verification import DocumentVerificationAgent
 from app.agents.fraud_detection import FraudDetectionAgent, FraudResult
@@ -57,7 +57,7 @@ def _halted(
     return ClaimDecision(
         claim_id=claim_id,
         decision=Decision.HALTED,
-        approved_amount=__import__("decimal").Decimal("0"),
+        approved_amount=Decimal("0"),
         confidence_score=confidence,
         halt_code=halt_code,
         halt_message=halt_message,
@@ -68,10 +68,6 @@ def _halted(
 
 class Orchestrator:
     def __init__(self, reference_date: Optional[date] = None) -> None:
-        """
-        reference_date: override today's date for policy deadline calculations.
-        Defaults to date.today(). Useful for testing with historical treatment dates.
-        """
         self._doc_verifier = DocumentVerificationAgent()
         self._doc_extractor = DocumentExtractionAgent()
         self._consistency = ConsistencyAgent()
@@ -82,8 +78,8 @@ class Orchestrator:
         self._reference_date = reference_date
 
     async def process_claim(self, submission: ClaimSubmission) -> ClaimDecision:
+        # Use an existing claim_id or generate a fresh one — never mutate the caller's object.
         claim_id = submission.claim_id or str(uuid.uuid4())
-        submission.claim_id = claim_id
 
         trace = ClaimTrace(
             claim_id=claim_id,
@@ -169,9 +165,6 @@ class Orchestrator:
         try:
             cresult = self._consistency.execute(extracted, member.name)
             if cresult.degraded:
-                # "No names" is a soft skip — nothing contradicts, nothing fails.
-                # Emit PASS (not DEGRADED) so this benign absence doesn't penalise
-                # confidence the same way a real component error would.
                 trace.append_event(_trace_event(
                     "ConsistencyCheck", t0, StageStatus.PASS, 1.0,
                     "No patient names in any document; cross-document name check skipped.",
@@ -260,20 +253,28 @@ class Orchestrator:
         ))
 
         # ── Stage 7: Narrative (OPTIONAL) ─────────────────────────────────
+        # NarrativeAgent.execute() catches its own exceptions and returns a fallback
+        # string, so the outer except below is a last-resort guard only.
+        # Crucially, a Narrative failure is recorded as SKIPPED, not DEGRADED, so it
+        # never penalises confidence or escalates a clean approval to manual review.
         t0 = _now()
         try:
             decision.narrative = await self._narrative.execute(decision)
+            trace.append_event(_trace_event(
+                "Narrative", t0, StageStatus.PASS, 1.0,
+                "Narrative generated.",
+            ))
         except Exception:
             decision.narrative = ""
             trace.append_event(_trace_event(
-                "Narrative", t0, StageStatus.DEGRADED, 1.0,
-                "Narrative generation failed; skipped."
+                "Narrative", t0, StageStatus.SKIPPED, 1.0,
+                "Narrative generation failed; skipped.",
             ))
 
-        # Recompute once as the authoritative final score, now that all trace events are recorded.
-        final_conf = _compute_final_confidence(trace)
-        # Categorical exclusions are high-certainty regardless of document-quality degradation;
-        # the spec requires confidence ≥ 0.90 for EXCLUDED_CONDITION rejections.
+        # Recompute once as the authoritative final score now that all trace events
+        # are recorded.  Categorical exclusions carry a confidence floor of 0.90
+        # regardless of document-quality degradation.
+        final_conf = compute_final_confidence(trace)
         if RejectionCode.EXCLUDED_CONDITION in decision.rejection_codes:
             final_conf = max(final_conf, 0.90)
         decision.confidence_score = final_conf

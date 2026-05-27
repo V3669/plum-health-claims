@@ -22,7 +22,7 @@ class DecisionEngine:
         fraud: FraudResult,
         trace: ClaimTrace,
     ) -> ClaimDecision:
-        final_confidence = _compute_final_confidence(trace)
+        final_confidence = compute_final_confidence(trace)
 
         reasons: List[str] = []
         rejection_codes: List[RejectionCode] = []
@@ -233,7 +233,7 @@ def _compute_financial_breakdown(
     return fb
 
 
-def _compute_final_confidence(trace: ClaimTrace) -> float:
+def compute_final_confidence(trace: ClaimTrace) -> float:
     successful = [
         e.confidence for e in trace.events
         if e.status == StageStatus.PASS

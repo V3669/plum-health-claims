@@ -59,6 +59,13 @@ def _collect_line_items(extracted: List[ExtractedDocument]) -> List[LineItem]:
     return items
 
 
+_PER_CLAIM_LIMIT_CATEGORIES = frozenset({
+    ClaimCategory.CONSULTATION,
+    ClaimCategory.DIAGNOSTIC,
+    ClaimCategory.PHARMACY,
+})
+
+
 class PolicyEvaluationAgent:
     name = "PolicyEvaluation"
 
@@ -121,13 +128,6 @@ class PolicyEvaluationAgent:
                         break
             ev.pre_auth_provided = submission.pre_authorization_ref is not None
 
-        # Per-claim hard cap applies only to consultation, diagnostic, and pharmacy.
-        # Dental, vision, and alternative medicine are governed by their category sub-limits.
-        _PER_CLAIM_LIMIT_CATEGORIES = {
-            ClaimCategory.CONSULTATION,
-            ClaimCategory.DIAGNOSTIC,
-            ClaimCategory.PHARMACY,
-        }
         ev.per_claim_limit_value = policy.coverage.per_claim_limit
         ev.per_claim_limit_exceeded = (
             submission.claim_category in _PER_CLAIM_LIMIT_CATEGORIES
@@ -178,7 +178,10 @@ def safe_default_policy_evaluation(submission: ClaimSubmission, policy: PolicyCo
     ev.initial_waiting_period_passed = True
     ev.specific_waiting_period_passed = True
     ev.per_claim_limit_value = policy.coverage.per_claim_limit
-    ev.per_claim_limit_exceeded = submission.claimed_amount > ev.per_claim_limit_value
+    ev.per_claim_limit_exceeded = (
+        submission.claim_category in _PER_CLAIM_LIMIT_CATEGORIES
+        and submission.claimed_amount > ev.per_claim_limit_value
+    )
 
     cat_key = submission.claim_category.value.lower()
     cat_cfg = policy.get_opd_category(cat_key)
