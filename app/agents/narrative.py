@@ -6,7 +6,7 @@ from google.genai import types
 from app.llm_client import get_client
 from app.models.decision import ClaimDecision
 
-_NARRATIVE_MODEL = "gemini-2.0-flash"
+_NARRATIVE_MODEL = "gemini-3.5-flash"
 
 
 class NarrativeAgent:

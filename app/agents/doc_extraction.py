@@ -24,7 +24,7 @@ _MIME_BY_EXT: Dict[str, str] = {
     ".tif": "image/tiff",
 }
 
-_EXTRACTION_MODEL = "gemini-2.0-flash"
+_EXTRACTION_MODEL = "gemini-3.5-flash"
 
 _EXTRACTION_PROMPT = (
     "Extract structured information from this {doc_type}. "

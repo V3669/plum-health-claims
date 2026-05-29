@@ -2,7 +2,7 @@
 
 A multi-agent OPD health insurance claims pipeline built with FastAPI, Pydantic v2, and Google Gemini.
 
-> **LLM backend history:** The system was initially prototyped with Anthropic Claude (`claude-sonnet-4-5`). It was subsequently migrated to Google Gemini (`gemini-2.0-flash`) for document extraction (Stage 2) and narrative generation (Stage 7). All business logic (Stages 1, 3–6) remains pure Python with no LLM dependency.
+> **LLM backend history:** The system was initially prototyped with Anthropic Claude (`claude-sonnet-4-5`). It was subsequently migrated to Google Gemini (`gemini-3.5-flash`) for document extraction (Stage 2) and narrative generation (Stage 7). All business logic (Stages 1, 3–6) remains pure Python with no LLM dependency.
 
 ## Architecture
 

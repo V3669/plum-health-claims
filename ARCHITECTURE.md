@@ -62,11 +62,11 @@
 
 ### ADR-02: LLM Only at Document Extraction and Narrative Boundaries
 
-**Decision:** The Gemini LLM (`gemini-2.0-flash`) is called only in Stage 2 (DocumentExtraction) and Stage 7 (NarrativeAgent). All policy logic, fraud checks, and decision logic are pure Python.
+**Decision:** The Gemini LLM (`gemini-3.5-flash`) is called only in Stage 2 (DocumentExtraction) and Stage 7 (NarrativeAgent). All policy logic, fraud checks, and decision logic are pure Python.
 
 **Why:** LLM reasoning is probabilistic and not auditable. Insurance decisions must be explainable and reproducible. Putting all business logic in Python means the system can be unit-tested exhaustively and its behaviour can be formally verified.
 
-> **LLM backend history:** The system was initially prototyped with Anthropic Claude (`claude-sonnet-4-5`). It was migrated to Google Gemini (`gemini-2.0-flash`) — the `google-genai` SDK is used throughout. Both stages tolerate API absence — extraction falls back to structured mock data, narrative falls back to a hardcoded string.
+> **LLM backend history:** The system was initially prototyped with Anthropic Claude (`claude-sonnet-4-5`). It was migrated to Google Gemini (`gemini-3.5-flash`) — the `google-genai` SDK is used throughout. Both stages tolerate API absence — extraction falls back to structured mock data, narrative falls back to a hardcoded string.
 
 ### ADR-03: Pydantic v2 for All Inter-Agent Payloads
 
@@ -125,7 +125,7 @@ confidence = min(PASS-stage confidences) × (0.7 ^ degraded_count)
 - Returns `VerificationResult(passed, missing, message)`
 
 ### `app/agents/doc_extraction.py` — Document Extraction (Gemini)
-- Calls Gemini `gemini-2.0-flash` concurrently for each document using `asyncio.gather`
+- Calls Gemini `gemini-3.5-flash` concurrently for each document using `asyncio.gather`
 - Falls back to `content` field (pre-extracted dict) or `patient_name_on_doc` when no API key
 - Returns list of `ExtractedDocument` with structured fields
 - Schema-validates all LLM output via JSON parsing into Pydantic
@@ -152,7 +152,7 @@ confidence = min(PASS-stage confidences) × (0.7 ^ degraded_count)
 - Sets `requires_manual_review=True` on any degraded or low-confidence approvals
 
 ### `app/agents/narrative.py` — Narrative Generator
-- Calls Gemini `gemini-2.0-flash` to generate a human-readable explanation of the decision
+- Calls Gemini `gemini-3.5-flash` to generate a human-readable explanation of the decision
 - Optional stage; failure produces a hardcoded fallback string without affecting the decision
 
 ### `app/llm_client.py` — LLM Client
