@@ -5,7 +5,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -14,8 +14,8 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import UPLOAD_DIR
 from app.models.decision import ClaimDecision
-from app.models.enums import ClaimCategory, DocumentQuality, DocumentType
-from app.models.submission import ClaimSubmission, DocumentSubmission, HistoricalClaim
+from app.models.enums import ClaimCategory, DocumentType
+from app.models.submission import ClaimSubmission, DocumentSubmission
 from app.orchestrator import Orchestrator
 from app.persistence import get_decision, init_db, list_claims, save_decision
 from app.policy_loader import load_policy

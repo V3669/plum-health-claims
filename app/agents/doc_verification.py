@@ -3,7 +3,6 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from app.agents.base import UnknownCategoryError
-from app.models.enums import DocumentType
 from app.models.policy import PolicyConfig
 from app.models.submission import ClaimSubmission
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 import json
 import sqlite3
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
 from app.config import DB_PATH as _DB_PATH, TRACES_DIR as _TRACES_DIR
