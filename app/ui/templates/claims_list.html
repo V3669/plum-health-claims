@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}All Claims — Plum{% endblock %}
+{% block content %}
+<h1>All Claims</h1>
+<div class="card" style="padding:0">
+  <table>
+    <thead>
+      <tr>
+        <th>Claim ID</th>
+        <th>Member</th>
+        <th>Decision</th>
+        <th>Approved</th>
+        <th>Confidence</th>
+        <th>Submitted</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for c in claims %}
+    <tr>
+      <td style="font-family:monospace;font-size:0.78rem">{{ c.claim_id[:12] }}…</td>
+      <td>{{ c.member_id }}</td>
+      <td><span class="badge badge-{{ c.decision }}">{{ c.decision }}</span></td>
+      <td class="amount">₹{{ "%.2f"|format(c.approved_amount or 0) }}</td>
+      <td>{{ "%.0f"|format((c.confidence or 0) * 100) }}%</td>
+      <td style="font-size:0.78rem;color:#666">{{ c.submitted_at[:16] }}</td>
+      <td><a href="/claims/{{ c.claim_id }}/view" class="btn btn-sm">View</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" style="text-align:center;color:#999;padding:32px">No claims yet. <a href="/">Submit one</a>.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

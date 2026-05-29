@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Submit Claim — Plum{% endblock %}
+{% block content %}
+<h1>Submit a Claim</h1>
+
+<div class="card">
+  <form action="/submit-form" method="post" enctype="multipart/form-data">
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Member ID</label>
+        <input type="text" name="member_id" placeholder="e.g. EMP001" required>
+      </div>
+      <div class="form-group">
+        <label>Policy ID</label>
+        <input type="text" name="policy_id" value="PLUM_GHI_2024" required>
+      </div>
+      <div class="form-group">
+        <label>Claim Category</label>
+        <select name="claim_category" required>
+          {% for cat in categories %}
+          <option value="{{ cat }}">{{ cat.replace('_', ' ').title() }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Treatment Date</label>
+        <input type="date" name="treatment_date" required>
+      </div>
+      <div class="form-group">
+        <label>Claimed Amount (₹)</label>
+        <input type="number" name="claimed_amount" min="0" step="0.01" required>
+      </div>
+      <div class="form-group">
+        <label>Hospital Name (optional)</label>
+        <input type="text" name="hospital_name" placeholder="e.g. Apollo Hospitals">
+      </div>
+      <div class="form-group">
+        <label>Pre-Authorization Reference (optional)</label>
+        <input type="text" name="pre_authorization_ref" placeholder="e.g. PREAUTH-2024-001">
+      </div>
+    </div>
+
+    <h2 style="margin-top:12px">Documents</h2>
+    <div id="doc-list">
+      <div class="doc-entry grid-2" style="margin-bottom:10px">
+        <div class="form-group">
+          <label>Document Type</label>
+          <select name="doc_types">
+            {% for dt in doc_types %}
+            <option value="{{ dt }}">{{ dt.replace('_', ' ').title() }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>File</label>
+          <input type="file" name="files" accept="image/*,.pdf">
+        </div>
+      </div>
+    </div>
+    <button type="button" class="btn btn-sm" style="margin-bottom:16px;background:#e0d4ff;color:#3d1c8a" onclick="addDoc()">+ Add Another Document</button>
+
+    <div>
+      <button type="submit" class="btn">Process Claim</button>
+    </div>
+  </form>
+</div>
+
+{% if recent_claims %}
+<h2>Recent Claims</h2>
+<div class="card" style="padding:0">
+  <table>
+    <thead><tr><th>Claim ID</th><th>Member</th><th>Decision</th><th>Amount</th><th>Submitted</th><th></th></tr></thead>
+    <tbody>
+    {% for c in recent_claims %}
+    <tr>
+      <td style="font-family:monospace;font-size:0.78rem">{{ c.claim_id[:8] }}…</td>
+      <td>{{ c.member_id }}</td>
+      <td><span class="badge badge-{{ c.decision }}">{{ c.decision }}</span></td>
+      <td class="amount">₹{{ "%.2f"|format(c.approved_amount or 0) }}</td>
+      <td style="font-size:0.78rem;color:#666">{{ c.submitted_at[:10] }}</td>
+      <td><a href="/claims/{{ c.claim_id }}/view" class="btn btn-sm">View</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<script>
+const docTypes = {{ doc_types | tojson }};
+function addDoc() {
+  const list = document.getElementById('doc-list');
+  const div = document.createElement('div');
+  div.className = 'doc-entry grid-2';
+  div.style.marginBottom = '10px';
+  div.innerHTML = `
+    <div class="form-group">
+      <label>Document Type</label>
+      <select name="doc_types">
+        ${docTypes.map(t => `<option value="${t}">${t.replace(/_/g,' ')}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>File</label>
+      <input type="file" name="files" accept="image/*,.pdf">
+    </div>`;
+  list.appendChild(div);
+}
+</script>
+{% endblock %}

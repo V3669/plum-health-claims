@@ -108,7 +108,7 @@ Raises on total system failure (network error after retries). Per-document failu
 
 1. If `patient_name_on_doc` is set → return minimal extraction with that name (confidence 0.70)
 2. If `content` is set → parse `content` as pre-extracted text (no LLM call)
-3. If `ANTHROPIC_API_KEY` present → call Claude claude-sonnet-4-5
+3. If `GEMINI_API_KEY` present → call Gemini gemini-2.0-flash
 4. Else → return minimal document with `is_readable=True`, empty fields, confidence 0.50
 
 ### Example — Pass (TC004, pre-supplied content)

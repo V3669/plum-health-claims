@@ -1,9 +1,12 @@
 from __future__ import annotations
 import asyncio
-import os
+
+from google.genai import types
 
 from app.llm_client import get_client
 from app.models.decision import ClaimDecision
+
+_NARRATIVE_MODEL = "gemini-3.5-flash"
 
 
 class NarrativeAgent:
@@ -24,14 +27,14 @@ class NarrativeAgent:
         )
         try:
             response = await asyncio.wait_for(
-                client.messages.create(
-                    model="claude-haiku-4-5-20251001",
-                    max_tokens=200,
-                    messages=[{"role": "user", "content": prompt}],
+                client.aio.models.generate_content(
+                    model=_NARRATIVE_MODEL,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(max_output_tokens=200),
                 ),
                 timeout=10.0,
             )
-            return response.content[0].text.strip()
+            return (response.text or "").strip()
         except Exception:
             return self._fallback_narrative(decision)
 

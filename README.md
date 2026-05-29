@@ -38,7 +38,7 @@ pip install -e ".[dev]"
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `ANTHROPIC_API_KEY` | For real images | — | Claude API key for document extraction |
+| `GEMINI_API_KEY` | For real images | — | Set in `.env` file (not terminal). Get free key at [aistudio.google.com](https://aistudio.google.com) |
 | `POLICY_FILE` | No | `policy_terms.json` | Path to policy config |
 
 ---

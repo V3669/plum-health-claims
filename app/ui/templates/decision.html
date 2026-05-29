@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Claim Decision — Plum{% endblock %}
+{% block content %}
+
+{% set d = decision %}
+
+{% if d.decision.value == 'HALTED' %}
+<div class="alert alert-error">
+  <strong>Claim Halted</strong><br>
+  {{ d.halt_message }}
+</div>
+{% elif d.decision.value == 'REJECTED' %}
+<div class="alert alert-error">
+  <strong>Claim Rejected</strong>
+</div>
+{% elif d.decision.value == 'MANUAL_REVIEW' %}
+<div class="alert alert-warning">
+  <strong>Claim Flagged for Manual Review</strong>
+</div>
+{% elif d.decision.value == 'PARTIAL' %}
+<div class="alert alert-warning">
+  <strong>Claim Partially Approved</strong>
+</div>
+{% else %}
+<div class="alert alert-success">
+  <strong>Claim Approved</strong>
+</div>
+{% endif %}
+
+<div class="card">
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+    <span class="badge badge-{{ d.decision.value }}" style="font-size:1rem;padding:6px 18px">{{ d.decision.value }}</span>
+    {% if d.decision.value not in ('HALTED','REJECTED') %}
+    <span style="font-size:1.4rem;font-weight:700;color:#065f46">₹{{ "%.2f"|format(d.approved_amount) }}</span>
+    {% endif %}
+    <span style="margin-left:auto;font-size:0.85rem;color:#666">
+      Confidence: <strong>{{ "%.0f"|format(d.confidence_score * 100) }}%</strong>
+      <span class="conf-bar"><span class="conf-fill" style="width:{{ "%.0f"|format(d.confidence_score * 100) }}%"></span></span>
+    </span>
+  </div>
+
+  <div class="grid-2" style="font-size:0.875rem;color:#555;gap:8px">
+    <div><strong>Claim ID:</strong> <code>{{ d.claim_id }}</code></div>
+    <div><strong>Decided:</strong> {{ d.decided_at }}</div>
+    {% if d.requires_manual_review %}
+    <div style="color:#92400e"><strong>⚠ Manual Review Recommended</strong></div>
+    {% endif %}
+  </div>
+
+  {% if d.reasons %}
+  <div style="margin-top:16px">
+    <strong>Reasons:</strong>
+    <ul style="margin-top:6px;padding-left:20px;font-size:0.875rem">
+      {% for r in d.reasons %}<li>{{ r }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if d.fraud_signals %}
+  <div style="margin-top:12px;font-size:0.875rem;color:#92400e">
+    <strong>Fraud signals:</strong> {{ d.fraud_signals | map(attribute='value') | join(', ') }}
+  </div>
+  {% endif %}
+</div>
+
+{% if d.financial_breakdown %}
+<div class="card">
+  <h2>Financial Breakdown</h2>
+  <table style="max-width:480px">
+    <tr><td>Claimed Amount</td><td class="amount">₹{{ "%.2f"|format(d.financial_breakdown.claimed_amount) }}</td></tr>
+    {% if d.financial_breakdown.excluded_line_items_total > 0 %}
+    <tr><td style="color:#991b1b">Excluded Items</td><td style="color:#991b1b">− ₹{{ "%.2f"|format(d.financial_breakdown.excluded_line_items_total) }}</td></tr>
+    {% endif %}
+    {% if d.financial_breakdown.network_discount_applied > 0 %}
+    <tr><td>Network Discount</td><td style="color:#065f46">− ₹{{ "%.2f"|format(d.financial_breakdown.network_discount_applied) }}</td></tr>
+    <tr><td>After Discount</td><td>₹{{ "%.2f"|format(d.financial_breakdown.amount_after_discount) }}</td></tr>
+    {% endif %}
+    {% if d.financial_breakdown.copay_applied > 0 %}
+    <tr><td>Co-pay</td><td style="color:#92400e">− ₹{{ "%.2f"|format(d.financial_breakdown.copay_applied) }}</td></tr>
+    {% endif %}
+    {% if d.financial_breakdown.sub_limit_cap_applied > 0 %}
+    <tr><td>Sub-limit Cap</td><td style="color:#92400e">− ₹{{ "%.2f"|format(d.financial_breakdown.sub_limit_cap_applied) }}</td></tr>
+    {% endif %}
+    <tr style="font-weight:700;font-size:1.05rem"><td>Final Approved</td><td class="amount">₹{{ "%.2f"|format(d.financial_breakdown.final_approved_amount) }}</td></tr>
+  </table>
+</div>
+{% endif %}
+
+{% if d.narrative %}
+<div class="card">
+  <h2>Summary</h2>
+  <p style="font-size:0.9rem;line-height:1.6;color:#555">{{ d.narrative }}</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Processing Trace</h2>
+  {% for ev in trace_events %}
+  <div class="trace-row trace-{{ ev.status.value }}">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <span class="badge badge-{{ ev.status.value }}">{{ ev.status.value }}</span>
+      <strong>{{ ev.stage_name }}</strong>
+      <span style="margin-left:auto;font-size:0.78rem;color:#888">
+        conf {{ "%.0f"|format(ev.confidence * 100) }}% &nbsp;|&nbsp;
+        {{ ev.started_at }}
+      </span>
+    </div>
+    <div style="font-size:0.875rem;color:#555;margin-bottom:4px">{{ ev.summary }}</div>
+    {% if ev.error %}
+    <div style="font-size:0.8rem;color:#991b1b">Error: {{ ev.error }}</div>
+    {% endif %}
+    {% if ev.detail %}
+    <details>
+      <summary>Detail</summary>
+      <pre>{{ ev.detail | tojson(indent=2) }}</pre>
+    </details>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<div style="margin-top:12px">
+  <a href="/" class="btn btn-sm">Submit Another Claim</a>
+  &nbsp;
+  <a href="/claims" class="btn btn-sm" style="background:#e0d4ff;color:#3d1c8a">All Claims</a>
+</div>
+
+{% endblock %}

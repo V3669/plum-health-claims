@@ -1,21 +1,21 @@
-import os
 from typing import Optional
 
-import anthropic
+from google import genai
+
+from app.config import GEMINI_API_KEY
 
 
-_client: Optional[anthropic.AsyncAnthropic] = None
+_client: Optional[genai.Client] = None
 
 
-def get_client() -> Optional[anthropic.AsyncAnthropic]:
+def get_client() -> Optional[genai.Client]:
     global _client
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
+    if not GEMINI_API_KEY:
         return None
     if _client is None:
-        _client = anthropic.AsyncAnthropic(api_key=api_key)
+        _client = genai.Client(api_key=GEMINI_API_KEY)
     return _client
 
 
 def has_api_key() -> bool:
-    return bool(os.environ.get("ANTHROPIC_API_KEY"))
+    return bool(GEMINI_API_KEY)

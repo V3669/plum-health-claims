@@ -41,7 +41,7 @@
 | **REQ-N04** | All inter-component payloads are Pydantic models. Type errors are caught at boundary, not deep in business logic. |
 | **REQ-N05** | The trace must be JSON-serializable in its entirety so it can be persisted, shown in the UI, and replayed. |
 | **REQ-N06** | LLM output must be schema-validated. Free-form LLM text never enters the decision path. |
-| **REQ-N07** | The system must run locally with a single command (`uvicorn app.main:app` or `docker compose up`) given an `ANTHROPIC_API_KEY` env var. |
+| **REQ-N07** | The system must run locally with a single command (`uvicorn app.main:app` or `docker compose up`) given an `GEMINI_API_KEY` env var. |
 | **REQ-N08** | Every decision response includes a stable `claim_id` (UUIDv4) and `decided_at` (UTC ISO 8601). |
 
 ### 1.3 Implicit Engineering Prerequisites
@@ -54,7 +54,7 @@
 | **PRE-04** | A diagnosis-to-condition mapper that maps free-text diagnoses to the policy's `specific_conditions` keys. E.g., "Type 2 Diabetes Mellitus" → "diabetes"; "Morbid Obesity" → "obesity_treatment"; "Lumbar Disc Herniation" → none. Built as a keyword dictionary with regex patterns; LLM-classified as fallback only. |
 | **PRE-05** | A confidence calculator that combines per-stage confidences with documented arithmetic (see §3.5). |
 | **PRE-06** | A trace-builder that is the single object passed by reference through the orchestrator. Each agent appends to it; no agent reads from it (one-way data flow). |
-| **PRE-07** | A configurable LLM client wrapper with timeout (15s), 1 retry on transient errors, and explicit fallback behavior when no `ANTHROPIC_API_KEY` is configured (returns deterministic mock extractions from the `content` field in test cases). |
+| **PRE-07** | A configurable LLM client wrapper with timeout (15s), 1 retry on transient errors, and explicit fallback behavior when no `GEMINI_API_KEY` is configured (returns deterministic mock extractions from the `content` field in test cases). |
 | **PRE-08** | An idempotency layer: same `claim_id` submitted twice returns the first decision. In-memory dict for assignment scope; Redis at 10x. |
 
 ---
@@ -1027,7 +1027,7 @@ These are imperative. The coding agent must implement them literally.
 15. The agent must call extraction for all documents concurrently using `asyncio.gather(..., return_exceptions=True)`.
 16. The agent must use `instructor` or the Anthropic SDK's tool-use mechanism to enforce that the LLM response conforms to the `ExtractedDocument` schema. The agent must not parse free-form text.
 17. The agent must set per-call timeout to 15 seconds. On timeout, the agent must return `ExtractedDocument(is_readable=False, extraction_confidence=0.0, extraction_warnings=["LLM timeout"])`.
-18. The agent must allow the system to run without an `ANTHROPIC_API_KEY` set. In that case, the agent must extract from `doc.content` and fail with a clear error if `content` is missing for any document.
+18. The agent must allow the system to run without an `GEMINI_API_KEY` set. In that case, the agent must extract from `doc.content` and fail with a clear error if `content` is missing for any document.
 
 ### 4.4 Consistency Rules
 

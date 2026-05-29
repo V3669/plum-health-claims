@@ -1,16 +1,44 @@
 from __future__ import annotations
 import asyncio
-import base64
 import json
 from datetime import date
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
+
+from google.genai import types
 
 from app.llm_client import get_client, has_api_key
 from app.models.enums import DocumentQuality, DocumentType
 from app.models.extraction import ExtractedDocument, LineItem
 from app.models.submission import DocumentSubmission
 from app.utils.dates import parse_date
+
+_MIME_BY_EXT: Dict[str, str] = {
+    ".pdf": "application/pdf",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".tiff": "image/tiff",
+    ".tif": "image/tiff",
+}
+
+_EXTRACTION_MODEL = "gemini-3.5-flash"
+
+_EXTRACTION_PROMPT = (
+    "Extract structured information from this {doc_type}. "
+    "Return a JSON object with these fields: "
+    "patient_name (string|null), document_date (YYYY-MM-DD|null), diagnosis (string|null), "
+    "secondary_diagnoses (list of strings), medicines (list of strings), "
+    "tests_ordered (list of strings), doctor_name (string|null), "
+    "doctor_registration (string|null), hospital_name (string|null), "
+    "line_items (list of {{description, amount}}), total_amount (number|null), "
+    "extraction_confidence (0.0-1.0), extraction_warnings (list of strings), "
+    "treatment (string|null). "
+    "For any field you cannot find or are uncertain about, use null or empty list. "
+    "Return ONLY valid JSON."
+)
 
 
 class DocumentExtractionAgent:
@@ -48,8 +76,6 @@ class DocumentExtractionAgent:
         if doc.content is not None:
             return self._build_from_content(doc)
 
-        # If only a patient name is supplied (e.g. test cases with patient_name_on_doc),
-        # produce a minimal readable extraction so the consistency check can run.
         if doc.patient_name_on_doc is not None:
             return ExtractedDocument(
                 file_id=doc.file_id,
@@ -68,7 +94,7 @@ class DocumentExtractionAgent:
                 inferred_type=DocumentType.UNKNOWN,
                 is_readable=False,
                 extraction_confidence=0.0,
-                extraction_warnings=["No ANTHROPIC_API_KEY configured and no pre-extracted content provided."],
+                extraction_warnings=["No GEMINI_API_KEY configured and no pre-extracted content provided."],
             )
 
         return await self._extract_via_llm(doc)
@@ -89,10 +115,7 @@ class DocumentExtractionAgent:
         raw_date = c.get("date") or c.get("document_date")
         doc_date: Optional[date] = parse_date(str(raw_date)) if raw_date else None
 
-        patient_name = (
-            c.get("patient_name")
-            or doc.patient_name_on_doc
-        )
+        patient_name = c.get("patient_name") or doc.patient_name_on_doc
 
         return ExtractedDocument(
             file_id=doc.file_id,
@@ -123,55 +146,25 @@ class DocumentExtractionAgent:
             raise ValueError(f"No file_path for doc {doc.file_id}")
 
         with open(doc.file_path, "rb") as f:
-            image_data = base64.standard_b64encode(f.read()).decode("utf-8")
+            image_bytes = f.read()
 
         suffix = (doc.file_name or doc.file_path or "").lower()
-        _MIME_BY_EXT = {
-            ".pdf": "application/pdf",
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".gif": "image/gif",
-            ".webp": "image/webp",
-            ".tiff": "image/tiff",
-            ".tif": "image/tiff",
-        }
         ext = "." + suffix.rsplit(".", 1)[-1] if "." in suffix else ""
         media_type = _MIME_BY_EXT.get(ext, "image/jpeg")
 
-        prompt = (
-            f"Extract structured information from this {doc.actual_type.value.lower().replace('_', ' ')}. "
-            "Return a JSON object with these fields: "
-            "patient_name (string|null), document_date (YYYY-MM-DD|null), diagnosis (string|null), "
-            "secondary_diagnoses (list of strings), medicines (list of strings), "
-            "tests_ordered (list of strings), doctor_name (string|null), "
-            "doctor_registration (string|null), hospital_name (string|null), "
-            "line_items (list of {description, amount}), total_amount (number|null), "
-            "extraction_confidence (0.0-1.0), extraction_warnings (list of strings), "
-            "treatment (string|null). "
-            "For any field you cannot find or are uncertain about, use null or empty list. "
-            "Return ONLY valid JSON."
+        prompt = _EXTRACTION_PROMPT.format(
+            doc_type=doc.actual_type.value.lower().replace("_", " ")
         )
 
         try:
             response = await asyncio.wait_for(
-                client.messages.create(
-                    model="claude-sonnet-4-5",
-                    max_tokens=2048,
-                    messages=[{
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": media_type,
-                                    "data": image_data,
-                                },
-                            },
-                            {"type": "text", "text": prompt},
-                        ],
-                    }],
+                client.aio.models.generate_content(
+                    model=_EXTRACTION_MODEL,
+                    contents=[
+                        types.Part.from_bytes(data=image_bytes, mime_type=media_type),
+                        prompt,
+                    ],
+                    config=types.GenerateContentConfig(max_output_tokens=2048),
                 ),
                 timeout=15.0,
             )
@@ -185,15 +178,24 @@ class DocumentExtractionAgent:
                 extraction_warnings=["LLM timeout"],
             )
 
-        raw_text = response.content[0].text.strip()
+        raw_text = (response.text or "").strip()
         if raw_text.startswith("```"):
-            # Strip opening fence: ```json, ```JSON, ``` etc.
             raw_text = raw_text.split("```")[1]
             if raw_text.lower().startswith("json"):
                 raw_text = raw_text[4:]
             raw_text = raw_text.strip()
 
-        data = json.loads(raw_text)
+        try:
+            data = json.loads(raw_text)
+        except json.JSONDecodeError as exc:
+            return ExtractedDocument(
+                file_id=doc.file_id,
+                declared_type=doc.actual_type,
+                inferred_type=DocumentType.UNKNOWN,
+                is_readable=False,
+                extraction_confidence=0.0,
+                extraction_warnings=[f"LLM returned non-JSON response: {exc}"],
+            )
 
         line_items = [
             LineItem(
