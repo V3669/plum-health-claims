@@ -42,19 +42,19 @@ Multi-agent pipeline with a single `Orchestrator` (`app/orchestrator.py`) coordi
 ```
 ClaimSubmission
   → DocumentVerificationAgent   [GATE]   checks right doc types uploaded
-  → DocumentExtractionAgent     [GATE]   calls Claude vision API per doc (asyncio.gather)
+  → DocumentExtractionAgent     [GATE]   calls Gemini vision API per doc (asyncio.gather)
   → ConsistencyAgent            [GATE]   patient name cross-doc match
   → PolicyEvaluationAgent       [soft]   applies policy_terms.json rules
   → FraudDetectionAgent         [soft]   heuristic signal scoring
   → DecisionEngine              [always] produces APPROVED/PARTIAL/REJECTED/MANUAL_REVIEW
-  → NarrativeAgent              [always] LLM-generated plain-English explanation
+  → NarrativeAgent              [always] Gemini-generated plain-English explanation
 → ClaimDecision (persisted to SQLite via persistence.py)
 ```
 
 **Key design points:**
 
 - `Orchestrator` builds a `ClaimTrace` (list of `TraceEvent`) throughout — every stage appends a timestamped event with `status`, `confidence`, and `detail`. Final `confidence_score` on `ClaimDecision` is derived from the trace via `compute_final_confidence()`.
-- LLM calls (Claude `claude-sonnet-4-6`) are isolated to `DocumentExtractionAgent` and `NarrativeAgent`. Both tolerate API absence — extraction falls back to structured mock data, narrative falls back to empty string. Check `has_api_key()` before assuming LLM is live.
+- LLM calls (Gemini `gemini-2.0-flash` via `google-genai` SDK) are isolated to `DocumentExtractionAgent` and `NarrativeAgent`. Both tolerate API absence — extraction falls back to structured mock data, narrative falls back to a hardcoded string. Check `has_api_key()` before assuming LLM is live. (Originally used Anthropic Claude; migrated to Gemini.)
 - Policy rules are loaded from `policy_terms.json` at request time via `policy_loader.py` into typed `Policy` + `Member` Pydantic models. No hardcoded policy logic anywhere else.
 - Persistence is SQLite (`claims.db`) via `app/persistence.py` — no ORM, raw `sqlite3`. `ClaimDecision` is stored as JSON blob with a few indexed columns.
 - UI is HTMX + Jinja2 templates in `app/ui/templates/`. Form submission hits `/submit-form`; JSON API is at `/api/claims`.

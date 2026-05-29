@@ -119,14 +119,17 @@ async def submit_form(
     doc_types: List[str] = Form(default=[]),
 ) -> HTMLResponse:
     docs: List[DocumentSubmission] = []
+    accepted = 0
     for i, f in enumerate(files):
         if not f.filename:
+            accepted += 1  # keep in sync with doc_types index
             continue
         fid = str(uuid.uuid4())
         dest = UPLOAD_DIR / fid
         with open(dest, "wb") as out:
             shutil.copyfileobj(f.file, out)
-        doc_type_str = doc_types[i] if i < len(doc_types) else "UNKNOWN"
+        doc_type_str = doc_types[accepted] if accepted < len(doc_types) else "UNKNOWN"
+        accepted += 1
         try:
             actual_type = DocumentType(doc_type_str)
         except ValueError:

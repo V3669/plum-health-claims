@@ -59,7 +59,7 @@ VerificationResult(
 ## Stage 2 — DocumentExtractionAgent
 
 **File:** `app/agents/doc_extraction.py`
-**Type:** Async, calls Claude claude-sonnet-4-5 API (or uses `content` field as fallback)
+**Type:** Async, calls Gemini `gemini-2.0-flash` API (or uses `content` field as fallback)
 
 ### Input
 
@@ -393,7 +393,7 @@ Never raises (pure logic over already-validated Pydantic models).
 ## Stage 7 — NarrativeAgent
 
 **File:** `app/agents/narrative.py`
-**Type:** Async, calls Claude claude-sonnet-4-5
+**Type:** Async, calls Gemini `gemini-2.0-flash`
 
 ### Input
 
