@@ -1,6 +1,6 @@
 # Eval Report — Plum Claims Processing System
 
-Generated: 2026-05-27T22:05:57.911316+00:00
+Generated: 2026-05-29T18:05:37.337717+00:00
 **12/12 test cases passed.**
 
 | Case ID | Case Name | Expected | Actual | Amount | Confidence | Match | Notes |
