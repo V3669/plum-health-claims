@@ -43,8 +43,7 @@ async def startup() -> None:
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> HTMLResponse:
     claims = list_claims(limit=10)
-    return templates.TemplateResponse("submit.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "submit.html", {
         "categories": [c.value for c in ClaimCategory],
         "doc_types": [d.value for d in DocumentType if d != DocumentType.UNKNOWN],
         "recent_claims": claims,
@@ -56,8 +55,7 @@ async def view_claim(request: Request, claim_id: str) -> HTMLResponse:
     decision = get_decision(claim_id)
     if decision is None:
         raise HTTPException(status_code=404, detail="Claim not found")
-    return templates.TemplateResponse("decision.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "decision.html", {
         "decision": decision,
         "trace_events": decision.trace.events,
     })
@@ -66,8 +64,7 @@ async def view_claim(request: Request, claim_id: str) -> HTMLResponse:
 @app.get("/claims", response_class=HTMLResponse)
 async def claims_list(request: Request) -> HTMLResponse:
     claims = list_claims(limit=50)
-    return templates.TemplateResponse("claims_list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "claims_list.html", {
         "claims": claims,
     })
 
@@ -192,8 +189,7 @@ async def submit_form(
     decision = await _orchestrator.process_claim(submission)
     save_decision(decision, submission.model_dump(mode="json"))
 
-    return templates.TemplateResponse("decision.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "decision.html", {
         "decision": decision,
         "trace_events": decision.trace.events,
     })
