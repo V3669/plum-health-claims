@@ -6,7 +6,7 @@ from google.genai import types
 from app.llm_client import get_client
 from app.models.decision import ClaimDecision
 
-_NARRATIVE_MODEL = "gemini-2.5-flash"
+_NARRATIVE_MODEL = "gemini-2.0-flash"
 
 
 class NarrativeAgent:
@@ -17,22 +17,22 @@ class NarrativeAgent:
         if client is None:
             return self._fallback_narrative(decision)
 
+        reasons_text = "; ".join(decision.reasons) if decision.reasons else "see policy terms"
         prompt = (
-            f"Write a 2-4 sentence plain-English summary for this insurance claim decision.\n"
+            f"Write exactly 2 complete sentences explaining this insurance claim outcome to the member. "
+            f"Be direct and concise. No preamble.\n"
             f"Decision: {decision.decision.value}\n"
-            f"Approved amount: ₹{decision.approved_amount}\n"
-            f"Reasons: {'; '.join(decision.reasons)}\n"
-            f"Confidence: {decision.confidence_score:.0%}\n"
-            "Write from the perspective of the insurance system explaining the outcome to the member."
+            f"Approved: ₹{decision.approved_amount}\n"
+            f"Reason: {reasons_text}\n"
         )
         try:
             response = await asyncio.wait_for(
                 client.aio.models.generate_content(
                     model=_NARRATIVE_MODEL,
                     contents=prompt,
-                    config=types.GenerateContentConfig(max_output_tokens=200),
+                    config=types.GenerateContentConfig(max_output_tokens=300),
                 ),
-                timeout=10.0,
+                timeout=15.0,
             )
             return (response.text or "").strip()
         except Exception:
