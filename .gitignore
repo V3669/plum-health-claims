@@ -49,4 +49,6 @@ uploads/
 eval_output.txt
 scripts/
 test_documents/
+tests/sample_docs/
+tests/generate_sample_docs.py
 # Note: policy_terms.json, test_cases.json, MASTER_IMPLEMENTATION_PLAN.md are committed
