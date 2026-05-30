@@ -164,9 +164,9 @@ class DocumentExtractionAgent:
                         types.Part.from_bytes(data=image_bytes, mime_type=media_type),
                         prompt,
                     ],
-                    config=types.GenerateContentConfig(max_output_tokens=2048),
+                    config=types.GenerateContentConfig(max_output_tokens=8192),
                 ),
-                timeout=15.0,
+                timeout=30.0,
             )
         except asyncio.TimeoutError:
             return ExtractedDocument(
@@ -179,11 +179,12 @@ class DocumentExtractionAgent:
             )
 
         raw_text = (response.text or "").strip()
-        if raw_text.startswith("```"):
-            raw_text = raw_text.split("```")[1]
-            if raw_text.lower().startswith("json"):
-                raw_text = raw_text[4:]
-            raw_text = raw_text.strip()
+        # Strip markdown code fences robustly — handle ```json ... ``` and ``` ... ```
+        if "```" in raw_text:
+            import re as _re
+            fence_match = _re.search(r"```(?:json)?\s*([\s\S]*?)```", raw_text)
+            raw_text = fence_match.group(1).strip() if fence_match else raw_text
+        raw_text = raw_text.strip()
 
         try:
             data = json.loads(raw_text)
