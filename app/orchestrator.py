@@ -181,7 +181,8 @@ class Orchestrator:
         # ── Stage 3: Consistency Check (GATE) ─────────────────────────────
         t0 = _now()
         try:
-            cresult = self._consistency.execute(extracted, member.name)
+            file_names = {d.file_id: d.file_name for d in submission.documents if d.file_name}
+            cresult = self._consistency.execute(extracted, member.name, file_names=file_names)
             if cresult.degraded:
                 trace.append_event(_trace_event(
                     "ConsistencyCheck", t0, StageStatus.PASS, 1.0,

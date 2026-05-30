@@ -20,6 +20,7 @@ class ConsistencyAgent:
         self,
         extracted: List[ExtractedDocument],
         member_name: str,
+        file_names: Optional[Dict[str, str]] = None,
     ) -> ConsistencyResult:
         names_by_file: Dict[str, str] = {}
         for doc in extracted:
@@ -34,6 +35,9 @@ class ConsistencyAgent:
                 degraded=True,
             )
 
+        def _label(fid: str) -> str:
+            return (file_names or {}).get(fid) or fid
+
         normalized_names = {fid: normalize_name(name) for fid, name in names_by_file.items()}
         unique_normalized = set(normalized_names.values())
 
@@ -42,7 +46,7 @@ class ConsistencyAgent:
             conflicts = self._find_conflicts(names_list)
             if conflicts:
                 pairs = "; ".join(
-                    f"'{raw}' on file '{fid}'"
+                    f"'{raw}' on file '{_label(fid)}'"
                     for fid, raw in names_by_file.items()
                 )
                 msg = (
@@ -59,7 +63,7 @@ class ConsistencyAgent:
         first_name = next(iter(names_by_file.values()))
         if not names_match(first_name, member_name):
             pairs = "; ".join(
-                f"'{raw}' on file '{fid}'"
+                f"'{raw}' on file '{_label(fid)}'"
                 for fid, raw in names_by_file.items()
             )
             msg = (
