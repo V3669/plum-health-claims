@@ -15,6 +15,7 @@ from app.utils.names import hospital_name_match
 
 class PolicyEvaluation(BaseModel):
     initial_waiting_period_passed: bool = True
+    initial_waiting_period_days: int = 0       # carried from policy for user-facing messages
     specific_waiting_period_passed: bool = True
     matched_specific_condition: Optional[str] = None
     eligible_from_date: Optional[date] = None
@@ -22,6 +23,7 @@ class PolicyEvaluation(BaseModel):
     excluded_reason: Optional[str] = None
     pre_auth_required: bool = False
     pre_auth_provided: bool = False
+    pre_auth_threshold_value: Optional[Decimal] = None  # carried from policy for messages
     per_claim_limit_exceeded: bool = False
     per_claim_limit_value: Decimal = Decimal("0")
     sub_limit_value: Decimal = Decimal("0")
@@ -30,7 +32,7 @@ class PolicyEvaluation(BaseModel):
     network_discount_percent: Decimal = Decimal("0")
     is_network_hospital: bool = False
     deadline_exceeded: bool = False
-    deadline_days: int = 30        # carried from policy so the message is accurate
+    deadline_days: int = 0         # carried from policy so the message is accurate
     below_minimum: bool = False
     member_active: bool = True
     excluded_line_items: List[LineItem] = []
@@ -92,13 +94,14 @@ class PolicyEvaluationAgent:
         treatment = _treatment_text(extracted)
         full_text = (diagnosis + " " + treatment).strip()
 
-        matched_excl = matches_exclusion(full_text)
+        matched_excl = matches_exclusion(full_text, policy.exclusions.conditions)
         if matched_excl:
             ev.diagnosis_excluded = True
             ev.excluded_reason = matched_excl
 
         join_date = member.join_date or policy.policy_holder.policy_start_date
         days_since_join = (submission.treatment_date - join_date).days
+        ev.initial_waiting_period_days = policy.waiting_periods.initial_waiting_period_days
         ev.initial_waiting_period_passed = days_since_join >= policy.waiting_periods.initial_waiting_period_days
 
         condition = map_diagnosis_to_condition(diagnosis)
@@ -114,16 +117,14 @@ class PolicyEvaluationAgent:
             diag_cfg = policy.get_opd_category("diagnostic")
             if diag_cfg:
                 all_items = _collect_line_items(extracted)
-                threshold = (
-                    diag_cfg.pre_auth_threshold
-                    if diag_cfg.pre_auth_threshold is not None
-                    else Decimal("10000")
-                )
+                threshold = diag_cfg.pre_auth_threshold  # None means no amount threshold
+                ev.pre_auth_threshold_value = threshold
                 for item in all_items:
                     for test in diag_cfg.high_value_tests_requiring_pre_auth:
-                        if test.lower() in item.description.lower() and item.amount > threshold:
-                            ev.pre_auth_required = True
-                            break
+                        if test.lower() in item.description.lower():
+                            if threshold is None or item.amount > threshold:
+                                ev.pre_auth_required = True
+                                break
                     if ev.pre_auth_required:
                         break
             ev.pre_auth_provided = submission.pre_authorization_ref is not None
@@ -175,7 +176,9 @@ class PolicyEvaluationAgent:
 def safe_default_policy_evaluation(submission: ClaimSubmission, policy: PolicyConfig) -> PolicyEvaluation:
     ev = PolicyEvaluation()
     ev.member_active = True
+    ev.initial_waiting_period_days = policy.waiting_periods.initial_waiting_period_days
     ev.initial_waiting_period_passed = True
+    ev.deadline_days = policy.submission_rules.deadline_days_from_treatment
     ev.specific_waiting_period_passed = True
     ev.per_claim_limit_value = policy.coverage.per_claim_limit
     ev.per_claim_limit_exceeded = (

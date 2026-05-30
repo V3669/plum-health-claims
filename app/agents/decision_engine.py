@@ -70,8 +70,13 @@ class DecisionEngine:
             )
 
         if evaluation.pre_auth_required and not evaluation.pre_auth_provided:
+            threshold_clause = (
+                f" (amount exceeds ₹{evaluation.pre_auth_threshold_value:,.0f})"
+                if evaluation.pre_auth_threshold_value is not None
+                else ""
+            )
             reasons.append(
-                "Pre-authorization is required for this diagnostic test (amount exceeds ₹10,000) "
+                f"Pre-authorization is required for this diagnostic test{threshold_clause} "
                 "but was not obtained. Please get pre-authorization from your insurer before "
                 "undergoing the procedure, then resubmit the claim with the pre-authorization "
                 "reference number."
@@ -96,7 +101,8 @@ class DecisionEngine:
 
         if not evaluation.initial_waiting_period_passed:
             reasons.append(
-                "Your claim is within the initial 30-day waiting period from your policy join date."
+                f"Your claim is within the initial {evaluation.initial_waiting_period_days}-day "
+                "waiting period from your policy join date."
             )
             rejection_codes.append(RejectionCode.WAITING_PERIOD)
             return self._make_decision(

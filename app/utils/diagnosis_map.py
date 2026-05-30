@@ -1,5 +1,5 @@
 import re
-from typing import Optional
+from typing import List, Optional
 
 DIAGNOSIS_CONDITION_MAP: dict[str, list[str]] = {
     "diabetes": [r"\b(diabetes|t2dm|t1dm|dm\s*type|diabetic)\b"],
@@ -38,9 +38,17 @@ def map_diagnosis_to_condition(diagnosis_text: str) -> Optional[str]:
     return None
 
 
-def matches_exclusion(full_text: str) -> Optional[str]:
+def matches_exclusion(full_text: str, policy_exclusions: Optional[List[str]] = None) -> Optional[str]:
+    """Return the matched exclusion name if full_text matches a known exclusion pattern.
+
+    When policy_exclusions is provided, only patterns whose key appears in that list
+    are considered — this prevents stale hardcoded patterns from firing if the policy
+    removes an exclusion.
+    """
     text = full_text.lower()
     for exclusion_name, patterns in EXCLUSION_KEYWORDS.items():
+        if policy_exclusions is not None and exclusion_name not in policy_exclusions:
+            continue
         for pattern in patterns:
             if re.search(pattern, text):
                 return exclusion_name
