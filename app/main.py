@@ -118,18 +118,18 @@ async def submit_form(
     files: List[UploadFile] = File(default=[]),
     doc_types: List[str] = Form(default=[]),
 ) -> HTMLResponse:
+    # doc_types[] and files[] are positionally aligned: the form renders each
+    # pair (doc_type select + file input) together, so index i in doc_types
+    # always corresponds to index i in files.  zip() is the correct idiom —
+    # it handles unequal lengths safely and eliminates any manual counter.
     docs: List[DocumentSubmission] = []
-    accepted = 0
-    for i, f in enumerate(files):
+    for f, doc_type_str in zip(files, doc_types):
         if not f.filename:
-            accepted += 1  # keep in sync with doc_types index
             continue
         fid = str(uuid.uuid4())
         dest = UPLOAD_DIR / fid
         with open(dest, "wb") as out:
             shutil.copyfileobj(f.file, out)
-        doc_type_str = doc_types[accepted] if accepted < len(doc_types) else "UNKNOWN"
-        accepted += 1
         try:
             actual_type = DocumentType(doc_type_str)
         except ValueError:
@@ -160,12 +160,30 @@ async def submit_form(
                    f"Valid categories: {[c.value for c in ClaimCategory]}",
         )
 
+    try:
+        parsed_date = date.fromisoformat(treatment_date)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid treatment date '{treatment_date}'. "
+                   f"Expected ISO format YYYY-MM-DD (e.g. 2024-11-01).",
+        )
+
+    try:
+        parsed_amount = Decimal(claimed_amount)
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid claimed amount '{claimed_amount}'. "
+                   f"Please enter a valid number (e.g. 1500 or 1500.00).",
+        )
+
     submission = ClaimSubmission(
         member_id=member_id,
         policy_id=policy_id,
         claim_category=category,
-        treatment_date=date.fromisoformat(treatment_date),
-        claimed_amount=Decimal(claimed_amount),
+        treatment_date=parsed_date,
+        claimed_amount=parsed_amount,
         hospital_name=hospital_name or None,
         pre_authorization_ref=pre_authorization_ref or None,
         documents=docs,

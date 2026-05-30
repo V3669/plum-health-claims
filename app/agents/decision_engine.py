@@ -207,9 +207,12 @@ def _compute_financial_breakdown(
 
     if ev.excluded_line_items:
         fb.excluded_line_items_total = quantize(
-            sum(item.amount for item in ev.excluded_line_items)
+            sum((item.amount for item in ev.excluded_line_items), Decimal("0"))
         )
-        base = sum(item.amount for item in ev.eligible_line_items)
+        # Provide Decimal("0") start so sum() returns Decimal even when the
+        # eligible list is empty (plain sum() would return int 0, which breaks
+        # the subsequent quantize() call).
+        base = sum((item.amount for item in ev.eligible_line_items), Decimal("0"))
     else:
         base = submission.claimed_amount
 

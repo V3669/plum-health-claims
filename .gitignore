@@ -44,4 +44,9 @@ uploads/
 assignment.md
 sample_documents_guide.md
 
+traces/
+uploads/
+eval_output.txt
+scripts/
+test_documents/
 # Note: policy_terms.json, test_cases.json, MASTER_IMPLEMENTATION_PLAN.md are committed
