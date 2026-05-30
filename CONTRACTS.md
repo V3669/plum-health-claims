@@ -59,7 +59,7 @@ VerificationResult(
 ## Stage 2 — DocumentExtractionAgent
 
 **File:** `app/agents/doc_extraction.py`
-**Type:** Async, calls Gemini `gemini-3.5-flash` API (or uses `content` field as fallback)
+**Type:** Async, calls Gemini `gemini-2.5-flash` API (or uses `content` field as fallback)
 
 ### Input
 
@@ -108,7 +108,7 @@ Raises on total system failure (network error after retries). Per-document failu
 
 1. If `patient_name_on_doc` is set → return minimal extraction with that name (confidence 0.70)
 2. If `content` is set → parse `content` as pre-extracted text (no LLM call)
-3. If `GEMINI_API_KEY` present → call Gemini gemini-3.5-flash
+3. If `GEMINI_API_KEY` present → call Gemini gemini-2.5-flash
 4. Else → return minimal document with `is_readable=True`, empty fields, confidence 0.50
 
 ### Example — Pass (TC004, pre-supplied content)
@@ -393,7 +393,7 @@ Never raises (pure logic over already-validated Pydantic models).
 ## Stage 7 — NarrativeAgent
 
 **File:** `app/agents/narrative.py`
-**Type:** Async, calls Gemini `gemini-3.5-flash`
+**Type:** Async, calls Gemini `gemini-2.5-flash`
 
 ### Input
 

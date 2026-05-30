@@ -135,15 +135,33 @@ class Orchestrator:
                 orig = next((s for s in submission.documents if s.file_id == doc.file_id), None)
                 fname = (orig.file_name if orig else None) or doc.file_id
                 doc_type = (orig.actual_type.value if orig else "document").lower().replace("_", " ")
-                msg = (
-                    f"We could not read this document: '{fname}' (declared as {doc_type}). "
-                    "Please upload a clearer photo or PDF of this specific document. "
-                    "All other documents in your claim are fine — only re-upload the one named here."
+                # Surface the actual extraction warning so API/config errors are
+                # distinguishable from genuine image-quality issues.
+                warning_detail = "; ".join(doc.extraction_warnings) if doc.extraction_warnings else ""
+                _is_api_error = any(
+                    kw in warning_detail.lower()
+                    for kw in ("api", "model", "timeout", "llm", "extraction failed", "not found")
                 )
+                if _is_api_error:
+                    msg = (
+                        f"Document extraction failed for '{fname}' due to a processing error "
+                        f"({warning_detail}). "
+                        "This is a system issue, not a problem with your document. "
+                        "Please try again or contact support."
+                    )
+                else:
+                    msg = (
+                        f"We could not read this document: '{fname}' (declared as {doc_type}). "
+                        "Please upload a clearer photo or PDF of this specific document. "
+                        "All other documents in your claim are fine — only re-upload the one named here."
+                    )
                 trace.append_event(_trace_event(
                     "DocumentExtraction", t0, StageStatus.FAIL, 0.0,
                     f"Document unreadable: {fname}",
-                    {"unreadable_files": [d.file_id for d in unreadable]},
+                    {
+                        "unreadable_files": [d.file_id for d in unreadable],
+                        "warnings": [d.extraction_warnings for d in unreadable],
+                    },
                 ))
                 return _halted(claim_id, HaltCode.DOCUMENT_UNREADABLE, msg, trace)
 
