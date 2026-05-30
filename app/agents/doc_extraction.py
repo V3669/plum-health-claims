@@ -164,7 +164,7 @@ class DocumentExtractionAgent:
                         types.Part.from_bytes(data=image_bytes, mime_type=media_type),
                         prompt,
                     ],
-                    config=types.GenerateContentConfig(max_output_tokens=8192),
+                    config=types.GenerateContentConfig(max_output_tokens=4000),
                 ),
                 timeout=30.0,
             )
