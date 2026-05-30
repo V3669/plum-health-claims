@@ -8,7 +8,6 @@ No API calls are made — we patch _extract_via_llm at the JSON-parse boundary.
 from __future__ import annotations
 from decimal import Decimal
 from typing import Any
-import json
 import pytest
 
 from app.agents.doc_extraction import _safe_decimal, DocumentExtractionAgent
@@ -84,7 +83,6 @@ def _call_postprocess(agent: DocumentExtractionAgent, data: dict, doc: DocumentS
     """Exercise only the JSON → ExtractedDocument conversion, bypassing the API call."""
     from app.models.extraction import LineItem
     from app.utils.dates import parse_date
-    from datetime import date as _date
 
     line_items = []
     for item in data.get("line_items", []):
