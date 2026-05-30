@@ -1,8 +1,9 @@
 from __future__ import annotations
 import asyncio
 import json
+import re
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional
 
 from google.genai import types
@@ -12,6 +13,33 @@ from app.models.enums import DocumentQuality, DocumentType
 from app.models.extraction import ExtractedDocument, LineItem
 from app.models.submission import DocumentSubmission
 from app.utils.dates import parse_date
+
+
+def _safe_decimal(value: Any) -> Optional[Decimal]:
+    """Convert an LLM-returned value to Decimal, returning None on any failure.
+
+    Handles the full range of values Gemini may produce for 'amount' fields:
+      - Proper numbers:        1500, 1500.0, "1500.00"
+      - Comma-formatted:       "9,800"  "1,85,000"
+      - Currency-prefixed:     "₹1500"  "$200"
+      - Non-numeric results:   "NEGATIVE"  "N/A"  "Normal"  "13.0-17.0"
+      - Python None / "None":  None  "None"  "null"
+      - Empty string:          ""  "  "
+    """
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s or s.lower() in ("none", "null", "n/a", "na", "-", "--", "normal", "abnormal"):
+        return None
+    # Strip leading currency symbols (₹, $, £, €, Rs, INR …)
+    s = re.sub(r"^[₹$£€]|^Rs\.?\s*|^INR\.?\s*", "", s, flags=re.IGNORECASE).strip()
+    # Remove thousands separators (Indian: 1,85,000  Western: 1,500)
+    s = s.replace(",", "")
+    try:
+        return Decimal(s)
+    except (InvalidOperation, ValueError, ArithmeticError):
+        return None
+
 
 _MIME_BY_EXT: Dict[str, str] = {
     ".pdf": "application/pdf",
@@ -33,11 +61,15 @@ _EXTRACTION_PROMPT = (
     "secondary_diagnoses (list of strings), medicines (list of strings), "
     "tests_ordered (list of strings), doctor_name (string|null), "
     "doctor_registration (string|null), hospital_name (string|null), "
-    "line_items (list of {{description, amount}}), total_amount (number|null), "
+    "line_items (list of {{description: string, amount: number|null}}), "
+    "total_amount (number|null), "
     "extraction_confidence (0.0-1.0), extraction_warnings (list of strings), "
     "treatment (string|null). "
+    "IMPORTANT: 'amount' in line_items and 'total_amount' must always be a plain number "
+    "(e.g. 1500.00) or null — never a string, unit, range, or non-numeric test result. "
+    "For lab reports, list each test in tests_ordered and leave line_items empty. "
     "For any field you cannot find or are uncertain about, use null or empty list. "
-    "Return ONLY valid JSON."
+    "Return ONLY valid JSON, no markdown fences."
 )
 
 
@@ -104,13 +136,15 @@ class DocumentExtractionAgent:
 
         line_items: List[LineItem] = []
         for item in c.get("line_items", []):
-            line_items.append(LineItem(
-                description=item.get("description", ""),
-                amount=Decimal(str(item.get("amount", 0))),
-            ))
+            amt = _safe_decimal(item.get("amount"))
+            if amt is not None:
+                line_items.append(LineItem(
+                    description=item.get("description", ""),
+                    amount=amt,
+                ))
 
-        total_raw = c.get("total") or c.get("total_amount")
-        total = Decimal(str(total_raw)) if total_raw is not None else None
+        total_raw = c.get("total_amount") if c.get("total") is None else c.get("total")
+        total = _safe_decimal(total_raw)
 
         raw_date = c.get("date") or c.get("document_date")
         doc_date: Optional[date] = parse_date(str(raw_date)) if raw_date else None
@@ -181,8 +215,7 @@ class DocumentExtractionAgent:
         raw_text = (response.text or "").strip()
         # Strip markdown code fences robustly — handle ```json ... ``` and ``` ... ```
         if "```" in raw_text:
-            import re as _re
-            fence_match = _re.search(r"```(?:json)?\s*([\s\S]*?)```", raw_text)
+            fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw_text)
             raw_text = fence_match.group(1).strip() if fence_match else raw_text
         raw_text = raw_text.strip()
 
@@ -198,16 +231,17 @@ class DocumentExtractionAgent:
                 extraction_warnings=[f"LLM returned non-JSON response: {exc}"],
             )
 
-        line_items = [
-            LineItem(
-                description=item.get("description", ""),
-                amount=Decimal(str(item.get("amount", 0))),
-            )
-            for item in data.get("line_items", [])
-        ]
+        line_items = []
+        for item in data.get("line_items", []):
+            amt = _safe_decimal(item.get("amount"))
+            if amt is not None:
+                line_items.append(LineItem(
+                    description=item.get("description", ""),
+                    amount=amt,
+                ))
 
         total_raw = data.get("total_amount")
-        total = Decimal(str(total_raw)) if total_raw is not None else None
+        total = _safe_decimal(total_raw)
 
         raw_date = data.get("document_date")
         doc_date = parse_date(str(raw_date)) if raw_date else None
